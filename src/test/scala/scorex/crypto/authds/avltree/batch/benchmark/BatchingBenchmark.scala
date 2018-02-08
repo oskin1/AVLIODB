@@ -9,7 +9,6 @@ import scorex.utils.Random
 
 object BatchingBenchmark extends App with FileHelper {
   val KeyLength = 26
-  val ValueLength = 8
   val LabelLength = 32
   val InitialMods = 0
   val NumMods = 2000000
@@ -18,7 +17,7 @@ object BatchingBenchmark extends App with FileHelper {
   implicit val hf = new Blake2b256Unsafe
 
   val store = new LogStore(getRandomTempDir, keepVersions = 10)
-  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, ValueLength, LabelLength))
+  val storage = new VersionedIODBAVLStorage(store, NodeParameters(KeyLength, LabelLength))
   require(storage.isEmpty)
   val mods = generateModifications()
   var digest: ADDigest = ADDigest @@ Array[Byte]()
@@ -30,9 +29,9 @@ object BatchingBenchmark extends App with FileHelper {
   bench()
 
   def bench(): Unit = {
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength), None)
+    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, None, None)
     val persProver = PersistentBatchAVLProver.create[Digest32, Blake2b256Unsafe](
-      new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, Some(ValueLength), None),
+      new BatchAVLProver[Digest32, Blake2b256Unsafe](KeyLength, None, None),
       storage,
       paranoidChecks = true).get
 

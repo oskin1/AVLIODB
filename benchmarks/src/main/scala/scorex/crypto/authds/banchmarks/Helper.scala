@@ -14,7 +14,6 @@ object Helper {
   implicit val hf = new Blake2b256Unsafe
 
   val kl = 32
-  val vl = 8
   val ll = 32
 
   def generateOps(r: Range): Array[Operation] = {
@@ -24,7 +23,7 @@ object Helper {
       val key = ADKey @@ new Array[Byte](kl)
       val k = Longs.toByteArray(i) ++ Longs.toByteArray(System.currentTimeMillis)
       k.copyToArray(key)
-      Insert(key, ADValue @@ k.take(vl))
+      Insert(key, ADValue @@ k)
     }.toArray
 
     val updates = inserts.map(i => Update(i.key, ADValue @@ Random.randomBytes(8)))
@@ -36,9 +35,9 @@ object Helper {
     val dir = java.nio.file.Files.createTempDirectory("bench_testing_" + scala.util.Random.alphanumeric.take(15)).toFile
     dir.deleteOnExit()
     val store = new LogStore(dir, keepVersions = keepVersions)
-    val storage = new VersionedIODBAVLStorage(store, NodeParameters(kl, vl, ll))
+    val storage = new VersionedIODBAVLStorage(store, NodeParameters(kl, ll))
     require(storage.isEmpty)
-    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](kl, Some(vl))
+    val prover = new BatchAVLProver[Digest32, Blake2b256Unsafe](kl, None)
 
 
     val persProver = PersistentBatchAVLProver.create(prover, storage, paranoidChecks = true).get
@@ -53,7 +52,7 @@ object Helper {
           val key = ADKey @@ new Array[Byte](kl)
           val k = Longs.toByteArray(i) ++ Longs.toByteArray(System.currentTimeMillis)
           k.copyToArray(key)
-          persProver.performOneOperation(Insert(key, ADValue @@ k.take(vl)))
+          persProver.performOneOperation(Insert(key, ADValue @@ k))
         }
         persProver.generateProofAndUpdateStorage()
       }

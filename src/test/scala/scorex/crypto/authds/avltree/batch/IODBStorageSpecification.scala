@@ -16,7 +16,6 @@ class IODBStorageSpecification extends PropSpec
   with TestHelper {
 
   override protected val KL = 32
-  override protected val VL = 8
   override protected val LL = 32
 
   val storeTest: Store => Unit = { store =>

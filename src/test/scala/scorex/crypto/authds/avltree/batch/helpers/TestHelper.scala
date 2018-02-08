@@ -18,7 +18,6 @@ trait TestHelper extends FileHelper {
   type STORAGE = VersionedIODBAVLStorage[D]
 
   protected val KL: Int
-  protected val VL: Int
   protected val LL: Int
 
   implicit val hf = new Blake2b256Unsafe
@@ -40,10 +39,10 @@ trait TestHelper extends FileHelper {
     new ShardedStore(dir)
   }
 
-  def createVersionedStorage(store: Store): STORAGE = new VersionedIODBAVLStorage(store, NodeParameters(KL, VL, LL))
+  def createVersionedStorage(store: Store): STORAGE = new VersionedIODBAVLStorage(store, NodeParameters(KL, LL))
 
   def createPersistentProver(storage: STORAGE): PERSISTENT_PROVER = {
-    val prover = new BatchAVLProver[D, HF](KL, Some(VL))
+    val prover = new BatchAVLProver[D, HF](KL, None)
     createPersistentProver(storage, prover)
   }
 
@@ -68,7 +67,7 @@ trait TestHelper extends FileHelper {
     createPersistentProver(storage)
   }
 
-  def createVerifier(digest: AD, proof: P): VERIFIER = new BatchAVLVerifier[D, HF](digest, proof, KL, Some(VL))
+  def createVerifier(digest: AD, proof: P): VERIFIER = new BatchAVLVerifier[D, HF](digest, proof, KL, None)
 
 
   implicit class DigestToBase58String(d: ADDigest) {

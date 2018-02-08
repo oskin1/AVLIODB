@@ -19,13 +19,14 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
   with TestHelper {
 
   override protected val KL = 32
-  override protected val VL = 8
   override protected val LL = 32
+
+  protected val valueLength = 8
 
   def kvGen: Gen[(ADKey, ADValue)] = for {
     key <- Gen.listOfN(KL, Arbitrary.arbitrary[Byte]).map(_.toArray) suchThat
       (k => !(k sameElements Array.fill(KL)(-1: Byte)) && !(k sameElements Array.fill(KL)(0: Byte)) && k.length == KL)
-    value <- Gen.listOfN(VL, Arbitrary.arbitrary[Byte]).map(_.toArray)
+    value <- Gen.listOfN(valueLength, Arbitrary.arbitrary[Byte]).map(_.toArray)
   } yield (ADKey @@ key, ADValue @@ value)
 
 
@@ -37,7 +38,7 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
 
     def ops(s: Int, e: Int): Unit = (s until e).foreach{ i =>
       prover.performOneOperation(Insert(ADKey @@ Blake2b256("k" + i).take(KL),
-        ADValue @@ Blake2b256("v" + i).take(VL)))
+        ADValue @@ Blake2b256("v" + i).take(valueLength)))
     }
 
     ops(0, 100)
@@ -170,11 +171,11 @@ class VersionedIODBAVLStorageSpecification extends PropSpec
         val store = createStore(0).ensuring(_.lastVersionID.isEmpty)
         val t = Try {
           var keys = IndexedSeq[ADKey]()
-          val p = new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(VL))
+          val p = new BatchAVLProver[Digest32, Blake2b256Unsafe](KL, Some(valueLength))
 
           (1 to cnt) foreach { _ =>
             val key = ADKey @@ RandomBytes.randomBytes(KL)
-            val value = ADValue @@ RandomBytes.randomBytes(VL)
+            val value = ADValue @@ RandomBytes.randomBytes(valueLength)
 
             keys = key +: keys
 
