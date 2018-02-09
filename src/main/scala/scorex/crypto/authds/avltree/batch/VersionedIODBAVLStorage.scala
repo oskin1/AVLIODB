@@ -1,6 +1,7 @@
 package scorex.crypto.authds.avltree.batch
 
 import com.google.common.primitives.Ints
+import io.iohk.iodb.Store.{K, V}
 import io.iohk.iodb.{ByteArrayWrapper, Store}
 import scorex.crypto.authds.avltree.batch.VersionedIODBAVLStorage.{InternalNodePrefix, LeafPrefix}
 import scorex.crypto.authds.{ADDigest, ADKey, ADValue, Balance}
@@ -12,7 +13,8 @@ import scorex.utils.ScryptoLogging
 import scala.util.{Failure, Try}
 
 class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodeParameters)
-                                          (implicit val hf: ThreadUnsafeHash[D]) extends VersionedAVLStorage[D] with ScryptoLogging {
+                                          (implicit val hf: ThreadUnsafeHash[D])
+  extends VersionedAVLStorage[D] with ScryptoLogging {
 
   private lazy val labelSize = nodeParameters.labelSize
 
@@ -39,7 +41,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
   def rollbackVersions: Iterable[ADDigest] = store.rollbackVersions().map(d => ADDigest @@ d.data)
 
-  def leafsIterator() = store.getAll().filter { case (_, v) => v.data.head == LeafPrefix }
+  def leafsIterator(): Iterator[(K, V)] = store.getAll().filter { case (_, v) => v.data.head == LeafPrefix }
 
   private def serializedVisitedNodes(node: ProverNodes[D]): Seq[(ByteArrayWrapper, ByteArrayWrapper)] = {
     if (node.isNew) {
@@ -59,7 +61,7 @@ class VersionedIODBAVLStorage[D <: Digest](store: Store, nodeParameters: NodePar
 
   private def toBytes(node: ProverNodes[D]): Array[Byte] = node match {
     case n: InternalProverNode[D] => InternalNodePrefix +: n.balance +: (n.key ++ n.left.label ++ n.right.label)
-    case n: ProverLeaf[D] => LeafPrefix +: (n.key ++ n.value ++ n.nextLeafKey)
+    case n: ProverLeaf[D] => LeafPrefix +: (n.key ++ Ints.toByteArray(n.value.length) ++ n.value ++ n.nextLeafKey)
   }
 
   override def update[K <: Array[Byte], V <: Array[Byte]](prover: BatchAVLProver[D, _],
@@ -101,7 +103,6 @@ object VersionedIODBAVLStorage {
     val bytes = store(ByteArrayWrapper(key)).data
     lazy val keySize = nodeParameters.keySize
     lazy val labelSize = nodeParameters.labelSize
-    lazy val valueSize = nodeParameters.valueSize
 
     bytes.head match {
       case InternalNodePrefix =>
@@ -115,8 +116,9 @@ object VersionedIODBAVLStorage {
         n
       case LeafPrefix =>
         val key = ADKey @@ bytes.slice(1, 1 + keySize)
-        val value = ADValue @@ bytes.slice(1 + keySize, 1 + keySize + valueSize)
-        val nextLeafKey = ADKey @@ bytes.slice(1 + keySize + valueSize, 1 + (2 * keySize) + valueSize)
+        val valueLength = Ints.fromByteArray(bytes.slice(1 + keySize, 1 + keySize + 4))
+        val value = ADValue @@ bytes.slice(1 + keySize + 4, 1 + keySize + 4 + valueLength)
+        val nextLeafKey = ADKey @@ bytes.slice(1 + keySize + 4 + valueLength, 1 + (2 * keySize) + 4 + valueLength)
         val l = new ProverLeaf[D](key, value, nextLeafKey)
         l.isNew = false
         l
